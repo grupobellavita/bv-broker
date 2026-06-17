@@ -126,8 +126,8 @@ input:focus,select:focus{outline:none;border-color:var(--olv);}
     <button class="tb" onclick="goTab('cjose',this)">Cuenta Jose</button>
   </nav>
   <div class="hbtns">
-    <button class="hbtn primary" onclick="subirSheets()" id="btn-subir">⬆ Subir</button>
-    <button class="hbtn" onclick="bajarSheets()" id="btn-bajar">↻ Sincronizar</button>
+    <button class="hbtn primary" onclick="subirSheets()" id="btn-subir">⬆ Subir a Supabase</button>
+    <button class="hbtn" onclick="bajarSheets()" id="btn-bajar">↻ Sincronizar Supabase</button>
     <button class="hbtn" onclick="exportar()">⬇ Backup</button>
     <button class="hbtn" onclick="importar()">📂 Restaurar</button>
   </div>
@@ -274,7 +274,8 @@ input:focus,select:focus{outline:none;border-color:var(--olv);}
 
 <script>
 // ── CONFIG ─────────────────────────────────────────────────────
-const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbw3axIZrRCdpQVtRiAcDtTqMFviIQ6NcUEfE5LnO5SOS0JqMsRc9c4h5WMZJ2T1-lVl2A/exec';
+const SUPA_URL = 'https://xfddsobecgpyexatkjos.supabase.co';
+const SUPA_KEY = 'sb_publishable_VAEndtn92QrVHPtB0mhKxw_W4tlqKeh';
 const ITEMS = ['VERDE 1','RODAJADA','DESCA 0','VERDE 170','VERDE 2','VERDE 3'];
 const PESO  = {'VERDE 1':180,'RODAJADA':150,'DESCA 0':150,'VERDE 170':180,'VERDE 2':180,'VERDE 3':180};
 const P_DEF = {
@@ -384,11 +385,18 @@ async function guardarOp() {
   };
   // Guardar local
   const ops=loadOps(); ops.push(op); save(K.OPS,ops);
-  // Guardar en Sheets
+  // Guardar en Supabase
   toast('Guardando...');
   try {
-    const r=await post({action:'save_op',...op});
-    toast(r.ok ? 'Operación guardada ✓' : 'Guardado local (Sheets no disponible)', !r.ok);
+    const ok = await sbInsert('ops', {
+      op_id:op.id, fecha:op.fecha, remito:op.remito||'', nombre:op.nombre,
+      bidones:op.bidones, venta_items:op.venta_items, costo_items:op.costo_items,
+      gan_items:op.gan_items, flete_vb:op.flete_vb, flete_cj:op.flete_cj,
+      flete_gan:op.flete_gan, venta_total:op.venta_total, costo_total:op.costo_total,
+      gan_total:op.gan_total, flete_pb:op.flete_pb, flete_pj:op.flete_pj,
+      items_json:JSON.stringify(op.items), ts:op.ts
+    });
+    toast(ok ? 'Operación guardada en Supabase ✓' : 'Guardado local', !ok);
   } catch(e) { toast('Guardado local (sin conexión)'); }
   limpiarForm(); renderDash();
 }
@@ -414,34 +422,50 @@ async function guardarPago() {
   const pagos=loadPagos(); pagos.push(pago); save(K.PAGOS,pagos);
   toast('Registrando...');
   try {
-    const r=await post({action:'save_pago',...pago});
-    toast(r.ok ? 'Registrado ✓' : 'Guardado local', !r.ok);
+    const ok = await sbInsert('pagos', {
+      pago_id:pago.id, tipo:pago.tipo, fecha:pago.fecha, forma:pago.forma,
+      ref:pago.ref||'', monto:pago.monto, notas:pago.notas||'', ts:pago.ts
+    });
+    toast(ok ? 'Registrado en Supabase ✓' : 'Guardado local', !ok);
   } catch(e) { toast('Guardado local'); }
   $('p-monto').value=''; $('p-ref').value=''; $('p-notas').value='';
   renderCobros(); renderDash();
 }
 
 // ── SHEETS ────────────────────────────────────────────────────
-function callSheets(params) {
-  return new Promise((resolve, reject) => {
-    const cbName = 'cb_' + Date.now();
-    const script = document.createElement('script');
-    params.callback = cbName;
-    const qs = new URLSearchParams(params).toString();
-    window[cbName] = function(data) {
-      delete window[cbName];
-      document.body.removeChild(script);
-      resolve(data);
-    };
-    script.onerror = () => { delete window[cbName]; reject(new Error('Error de red')); };
-    script.src = SHEETS_URL + '?' + qs;
-    document.body.appendChild(script);
-    setTimeout(() => { if(window[cbName]){ delete window[cbName]; reject(new Error('Timeout')); } }, 15000);
-  });
+// ── SUPABASE API ──────────────────────────────────────────────
+const HEADERS = {
+  'Content-Type': 'application/json',
+  'apikey': SUPA_KEY,
+  'Authorization': 'Bearer ' + SUPA_KEY,
+  'Prefer': 'return=minimal'
+};
+
+async function sbGet(table, query='') {
+  const r = await fetch(SUPA_URL+'/rest/v1/'+table+'?'+query, {headers:{...HEADERS,'Prefer':''}});
+  return r.json();
 }
 
-async function post(body) {
-  return callSheets({ action: body.action, data: JSON.stringify(body) });
+async function sbInsert(table, data) {
+  const r = await fetch(SUPA_URL+'/rest/v1/'+table, {
+    method:'POST', headers:HEADERS, body:JSON.stringify(data)
+  });
+  return r.ok;
+}
+
+async function sbDelete(table, field, value) {
+  const r = await fetch(SUPA_URL+'/rest/v1/'+table+'?'+field+'=eq.'+value, {
+    method:'DELETE', headers:HEADERS
+  });
+  return r.ok;
+}
+
+async function sbClear(table) {
+  // Borrar todos los registros
+  const r = await fetch(SUPA_URL+'/rest/v1/'+table+'?id=gte.0', {
+    method:'DELETE', headers:HEADERS
+  });
+  return r.ok;
 }
 
 async function subirSheets() {
@@ -449,40 +473,55 @@ async function subirSheets() {
   if(!ops.length&&!pagos.length){ toast('No hay datos locales para subir',true); return; }
   toast('Subiendo '+ops.length+' ops y '+pagos.length+' pagos...');
   try {
-    const r=await post({action:'import_all',ops,pagos});
-    if(r.ok) toast('Subido a Sheets: '+r.ops+' ops, '+r.pagos+' pagos ✓');
-    else toast('Error: '+(r.error||'desconocido'),true);
-  } catch(e){ toast('Error de conexión',true); }
+    // Limpiar tablas primero
+    await fetch(SUPA_URL+'/rest/v1/ops?id=gte.0',{method:'DELETE',headers:HEADERS});
+    await fetch(SUPA_URL+'/rest/v1/pagos?id=gte.0',{method:'DELETE',headers:HEADERS});
+    // Insertar ops
+    const opsData = ops.map(o=>({
+      op_id:o.id, fecha:o.fecha, remito:o.remito||'', nombre:o.nombre,
+      bidones:o.bidones, venta_items:o.venta_items, costo_items:o.costo_items,
+      gan_items:o.gan_items, flete_vb:o.flete_vb, flete_cj:o.flete_cj,
+      flete_gan:o.flete_gan, venta_total:o.venta_total, costo_total:o.costo_total,
+      gan_total:o.gan_total, flete_pb:o.flete_pb, flete_pj:o.flete_pj,
+      items_json:JSON.stringify(o.items), ts:o.ts
+    }));
+    await sbInsert('ops', opsData);
+    // Insertar pagos
+    const pagosData = pagos.map(p=>({
+      pago_id:p.id, tipo:p.tipo, fecha:p.fecha, forma:p.forma,
+      ref:p.ref||'', monto:p.monto, notas:p.notas||'', ts:p.ts
+    }));
+    await sbInsert('pagos', pagosData);
+    toast('Subido: '+ops.length+' ops, '+pagos.length+' pagos ✓');
+  } catch(e){ toast('Error: '+e.message,true); }
 }
 
 async function bajarSheets() {
-  toast('Sincronizando desde Sheets...');
+  toast('Sincronizando desde Supabase...');
   try {
-    const d=await callSheets({action:'load'});
-    if(!d.ok){ toast('Error al sincronizar',true); return; }
-    // Parsear ops
-    if(d.ops&&d.ops.length){
-      const ops=d.ops.map(row=>({
-        id:row[0], fecha:String(row[1]).substring(0,10), remito:row[2]||'', nombre:row[3]||'',
-        bidones:num(row[4]), venta_items:num(row[5]), costo_items:num(row[6]), gan_items:num(row[7]),
-        flete_vb:num(row[8]), flete_cj:num(row[9]), flete_gan:num(row[10]),
-        venta_total:num(row[11]), costo_total:num(row[12]), gan_total:num(row[13]),
-        flete_pb:num(row[14])||30000, flete_pj:num(row[15])||150000,
-        items:(()=>{try{return JSON.parse(row[16]||'{}');}catch(e){return {};}})(),
-        ts:row[17]||''
+    const opsRaw   = await sbGet('ops',  'select=*&order=op_id.asc');
+    const pagosRaw = await sbGet('pagos','select=*&order=pago_id.asc');
+    if(!Array.isArray(opsRaw)){ toast('Error al sincronizar',true); return; }
+    const ops = opsRaw.map(r=>({
+      id:r.op_id, fecha:r.fecha||'', remito:r.remito||'', nombre:r.nombre||'',
+      bidones:num(r.bidones), venta_items:num(r.venta_items), costo_items:num(r.costo_items),
+      gan_items:num(r.gan_items), flete_vb:num(r.flete_vb), flete_cj:num(r.flete_cj),
+      flete_gan:num(r.flete_gan), venta_total:num(r.venta_total), costo_total:num(r.costo_total),
+      gan_total:num(r.gan_total), flete_pb:num(r.flete_pb)||30000, flete_pj:num(r.flete_pj)||150000,
+      items:(()=>{try{return JSON.parse(r.items_json||'{}');}catch(e){return {};}})(),
+      ts:r.ts||''
+    }));
+    save(K.OPS, ops);
+    if(Array.isArray(pagosRaw)){
+      const pagos = pagosRaw.map(r=>({
+        id:r.pago_id, tipo:r.tipo||'', fecha:r.fecha||'',
+        forma:r.forma||'', ref:r.ref||'', monto:num(r.monto), notas:r.notas||'', ts:r.ts||''
       }));
-      save(K.OPS,ops);
+      save(K.PAGOS, pagos);
     }
-    // Parsear pagos
-    if(d.pagos&&d.pagos.length){
-      const pagos=d.pagos.map(row=>({
-        id:row[0], tipo:row[1]||'', fecha:String(row[2]).substring(0,10),
-        forma:row[3]||'', ref:row[4]||'', monto:num(row[5]), notas:row[6]||'', ts:row[7]||''
-      }));
-      save(K.PAGOS,pagos);
-    }
-    renderDash(); toast('Sincronizado: '+loadOps().length+' ops ✓');
-  } catch(e){ toast('Error de conexión',true); }
+    renderDash();
+    toast('Sincronizado: '+loadOps().length+' ops ✓');
+  } catch(e){ toast('Error: '+e.message,true); }
 }
 
 // ── EXPORT / IMPORT ───────────────────────────────────────────
@@ -559,7 +598,7 @@ function renderHist(){
 async function delOp(id){
   if(!confirm('¿Eliminar esta operación?')) return;
   save(K.OPS, loadOps().filter(o=>o.id!==id));
-  try{ await post({action:'delete_op',id}); }catch(e){}
+  try{ await sbDelete('ops','op_id',id); }catch(e){}
   renderHist(); renderDash(); toast('Eliminado');
 }
 
@@ -600,7 +639,7 @@ function renderCobros(){
 async function delPago(id){
   if(!confirm('¿Eliminar?')) return;
   save(K.PAGOS, loadPagos().filter(p=>p.id!==id));
-  try{ await post({action:'delete_pago',id}); }catch(e){}
+  try{ await sbDelete('pagos','pago_id',id); }catch(e){}
   renderCobros(); renderDash(); toast('Eliminado');
 }
 
