@@ -274,7 +274,7 @@ input:focus,select:focus{outline:none;border-color:var(--olv);}
 
 <script>
 // ── CONFIG ─────────────────────────────────────────────────────
-const SHEETS_URL = 'SHEETS_URL_PLACEHOLDER';
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbw3axIZrRCdpQVtRiAcDtTqMFviIQ6NcUEfE5LnO5SOS0JqMsRc9c4h5WMZJ2T1-lVl2A/exec';
 const ITEMS = ['VERDE 1','RODAJADA','DESCA 0','VERDE 170','VERDE 2','VERDE 3'];
 const PESO  = {'VERDE 1':180,'RODAJADA':150,'DESCA 0':150,'VERDE 170':180,'VERDE 2':180,'VERDE 3':180};
 const P_DEF = {
@@ -423,7 +423,12 @@ async function guardarPago() {
 
 // ── SHEETS ────────────────────────────────────────────────────
 async function post(body) {
-  const r=await fetch(SHEETS_URL,{method:'POST',body:JSON.stringify(body)});
+  // Usar GET con datos encoded para evitar CORS
+  const params = new URLSearchParams({
+    action: body.action,
+    data: JSON.stringify(body)
+  });
+  const r = await fetch(SHEETS_URL + '?' + params.toString());
   return r.json();
 }
 
