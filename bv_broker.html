@@ -653,8 +653,20 @@ async function importToSheets() {
 
 // Agregar boton de sync en header
 document.querySelector('.backup-bar').insertAdjacentHTML('afterbegin',
-  '<button class="btn btn-ghost" style="font-size:11px;padding:5px 11px;color:#6B9466;border-color:#4A6741" onclick="loadFromSheets()">↻ Sync Sheets</button>'
+  '<button class="btn btn-ghost" style="font-size:11px;padding:5px 11px;color:#6B9466;border-color:#4A6741" onclick="loadFromSheets()">↻ Sync Sheets</button><button class="btn btn-ghost" style="font-size:11px;padding:5px 11px;color:#C8A96E;border-color:#4A6741" onclick="uploadToSheets()">⬆ Subir a Sheets</button>'
 );
+
+
+// Subir todos los datos locales a Sheets
+async function uploadToSheets() {
+  const ops = loadOps();
+  const pagos = loadPagos();
+  if(!ops.length && !pagos.length) { toast('No hay datos locales para subir'); return; }
+  toast('Subiendo a Sheets...');
+  const res = await sheetsPost({action:'import_all', ops, pagos});
+  if(res.ok) toast('Datos subidos a Sheets correctamente');
+  else toast('Error: ' + (res.error||'desconocido'));
+}
 
 // Cargar desde Sheets al inicio
 loadFromSheets();
