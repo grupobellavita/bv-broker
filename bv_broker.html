@@ -11,7 +11,7 @@
 html{font-size:15px;}
 body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,sans-serif;min-height:100vh;}
 header{display:flex;align-items:center;gap:14px;padding:16px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100;}
-.logo-img{height:40px;width:auto;filter:brightness(0) invert(0.9) sepia(0.5) saturate(2) hue-rotate(5deg);}
+.logo-img{height:40px;width:auto;filter:brightness(0) invert(1);mix-blend-mode:screen;}
 .brand{display:flex;flex-direction:column;}
 .brand-name{font-family:serif;font-size:19px;color:var(--gold);letter-spacing:.02em;}
 .brand-sub{font-size:10px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;}
@@ -601,20 +601,31 @@ async function loadFromSheets() {
     //       flete_pb,flete_pj,items_json,ts
     if(res.ops && res.ops.length > 0) {
       const ops = res.ops.map(r => ({
-        id:r[0],fecha:r[1],remito:r[2],nombre:r[3],
-        bidones:r[4],venta_items:r[5],costo_items:r[6],gan_items:r[7],
-        flete_vb:r[8],flete_cj:r[9],flete_gan:r[10],
-        venta_total:r[11],costo_total:r[12],gan_total:r[13],
-        flete_pb:r[14],flete_pj:r[15],
-        items: typeof r[16]==='string' ? JSON.parse(r[16]||'{}') : (r[16]||{}),
-        ts:r[17]
+        id:r[0],fecha:String(r[1]).substring(0,10),remito:r[2]||'',nombre:r[3]||'',
+        bidones:parseFloat(r[4])||0,
+        venta_items:parseFloat(r[5])||0,
+        costo_items:parseFloat(r[6])||0,
+        gan_items:parseFloat(r[7])||0,
+        flete_vb:parseFloat(r[8])||0,
+        flete_cj:parseFloat(r[9])||0,
+        flete_gan:parseFloat(r[10])||0,
+        venta_total:parseFloat(r[11])||0,
+        costo_total:parseFloat(r[12])||0,
+        gan_total:parseFloat(r[13])||0,
+        flete_pb:parseFloat(r[14])||30000,
+        flete_pj:parseFloat(r[15])||150000,
+        items: (function(){try{return typeof r[16]==='string'?JSON.parse(r[16]||'{}'):(r[16]||{});}catch(e){return {};}})(),
+        ts:r[17]||''
       }));
       save(DB_OPS, ops);
     }
     // Parsear pagos: id,tipo,fecha,forma,ref,monto,notas,ts
     if(res.pagos && res.pagos.length > 0) {
       const pagos = res.pagos.map(r => ({
-        id:r[0],tipo:r[1],fecha:r[2],forma:r[3],ref:r[4],monto:r[5],notas:r[6],ts:r[7]
+        id:r[0],tipo:r[1]||'',fecha:String(r[2]).substring(0,10),
+        forma:r[3]||'',ref:r[4]||'',
+        monto:parseFloat(r[5])||0,
+        notas:r[6]||'',ts:r[7]||''
       }));
       save(DB_PAGOS, pagos);
     }
