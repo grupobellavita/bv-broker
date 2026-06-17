@@ -1,0 +1,18 @@
+{
+  "name": "BV Finance — Broker",
+  "short_name": "BV Broker",
+  "description": "Gestión de operaciones broker Bordi / Jose",
+  "start_url": "/bv-broker/bv_broker.html",
+  "display": "standalone",
+  "background_color": "#0F1410",
+  "theme_color": "#0F1410",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon-broker.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

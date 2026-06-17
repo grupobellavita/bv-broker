@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Fondo verde oscuro -->
+  <rect width="512" height="512" rx="80" fill="#0F1410"/>
+  <!-- Marco sutil -->
+  <rect x="8" y="8" width="496" height="496" rx="74" fill="none" stroke="#2A3A2C" stroke-width="6"/>
+  
+  <!-- Aceituna decorativa arriba -->
+  <ellipse cx="256" cy="95" rx="28" ry="38" fill="#4A6741"/>
+  <ellipse cx="256" cy="95" rx="18" ry="26" fill="#6B9466"/>
+  <ellipse cx="256" cy="88" rx="8" ry="10" fill="#C8A96E"/>
+  <!-- Palito -->
+  <line x1="256" y1="57" x2="272" y2="42" stroke="#4A6741" stroke-width="5" stroke-linecap="round"/>
+  <ellipse cx="275" cy="38" rx="8" ry="6" fill="#6B9466"/>
+
+  <!-- BELLA en dorado -->
+  <text x="256" y="220" 
+    font-family="Georgia, serif" 
+    font-size="108" 
+    font-weight="bold"
+    fill="#C8A96E" 
+    text-anchor="middle"
+    letter-spacing="-2">BELLA</text>
+  
+  <!-- VITA en dorado -->
+  <text x="256" y="330" 
+    font-family="Georgia, serif" 
+    font-size="108" 
+    font-weight="bold"
+    fill="#C8A96E" 
+    text-anchor="middle"
+    letter-spacing="-2">VITA</text>
+
+  <!-- Línea separadora -->
+  <line x1="80" y1="360" x2="432" y2="360" stroke="#2A3A2C" stroke-width="2"/>
+
+  <!-- BROKER en crema pequeño -->
+  <text x="256" y="410" 
+    font-family="Georgia, serif" 
+    font-size="52" 
+    fill="#F5EDD8" 
+    text-anchor="middle"
+    letter-spacing="12">BROKER</text>
+
+  <!-- Estrellitas decorativas -->
+  <text x="90" y="200" font-size="28" fill="#C8A96E" text-anchor="middle">✦</text>
+  <text x="422" y="200" font-size="28" fill="#C8A96E" text-anchor="middle">✦</text>
+</svg>
