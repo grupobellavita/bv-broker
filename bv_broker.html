@@ -175,6 +175,7 @@ input:focus,select:focus{outline:none;border-color:var(--olv);}
     <div class="fg3">
       <div class="fi"><label>Tipo</label>
         <select id="p-tipo">
+          <option value="cobro_pago_conjunto">⚡ Cobro Bordi + Pago Jose</option>
           <option value="cobro_bordi">Cobro de Bordi</option>
           <option value="pago_jose">Pago a Jose</option>
           <option value="cobro_nacho">Cobro Nacho (comisión)</option>
@@ -419,7 +420,7 @@ input:focus,select:focus{outline:none;border-color:var(--olv);}
 
 <script>
 const SUPA_URL = 'https://xfddsobecgpyexatkjos.supabase.co';
-const SUPA_KEY = 'sb_publishable_VAEndtn92QrVHPtB0mhKxw_W4tlqKeh';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmZGRzb2JlY2dweWV4YXRram9zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3MjEyNjEsImV4cCI6MjA5NzI5NzI2MX0.1bmJudDR1ZTAnOL2NJ4JEWRz-Pl7Edsv-FmT-JN7V0U';
 const ITEMS = ['VERDE 1','RODAJADA','DESCA 0','VERDE 170','VERDE 2','VERDE 3'];
 const PESO  = {'VERDE 1':180,'RODAJADA':150,'DESCA 0':150,'VERDE 170':180,'VERDE 2':180,'VERDE 3':180};
 const P_DEF = {
@@ -435,7 +436,12 @@ const $ = id => document.getElementById(id);
 const fmt  = n => '$' + (Math.round(n)||0).toLocaleString('es-AR');
 const fmtN = n => (Math.round(n)||0).toLocaleString('es-AR');
 const dateD = d => { try{ return new Date((d||'').substring(0,10)+'T12:00').toLocaleDateString('es-AR'); }catch(e){ return '—'; } };
-const num = v => parseFloat(v)||0;
+const num = v => {
+  if (v === null || v === undefined || v === '') return 0;
+  // Reemplaza coma por punto (decimal) y parsea
+  const s = String(v).trim().replace(',', '.');
+  return parseFloat(s) || 0;
+};
 
 function toast(msg, err=false) {
   const t=$('toast');
@@ -552,15 +558,30 @@ async function guardarPago() {
   const forma=$('p-forma').value, ref=($('p-ref').value||'').trim();
   const monto=num($('p-monto').value), notas=($('p-notas').value||'').trim();
   if(!fecha||!monto){ toast('Completá fecha y monto',true); return; }
-  const pago={id:Date.now(),tipo,fecha,forma,ref,monto,notas,ts:new Date().toISOString()};
-  const pagos=loadPagos(); pagos.push(pago); save(K.PAGOS,pagos);
+  const pagos=loadPagos();
   toast('Registrando...');
   try {
-    const ok = await sbInsert('pagos', {
-      pago_id:pago.id, tipo:pago.tipo, fecha:pago.fecha, forma:pago.forma,
-      ref:pago.ref||'', monto:pago.monto, notas:pago.notas||'', ts:pago.ts
-    });
-    toast(ok ? 'Registrado ✓' : 'Guardado local', !ok);
+    if (tipo === 'cobro_pago_conjunto') {
+      // Crear DOS registros: uno cobro_bordi y uno pago_jose con el mismo monto
+      const ts = new Date().toISOString();
+      const id1 = Date.now();
+      const id2 = Date.now() + 1;
+      const pago1 = {id:id1, tipo:'cobro_bordi', fecha, forma, ref, monto, notas, ts};
+      const pago2 = {id:id2, tipo:'pago_jose', fecha, forma, ref, monto, notas:notas?notas+' (conjunto)':'conjunto', ts};
+      pagos.push(pago1, pago2);
+      save(K.PAGOS, pagos);
+      await sbInsert('pagos', {pago_id:id1, tipo:'cobro_bordi', fecha, forma, ref:ref||'', monto, notas:notas||'', ts});
+      await sbInsert('pagos', {pago_id:id2, tipo:'pago_jose', fecha, forma, ref:ref||'', monto, notas:notas?notas+' (conjunto)':'conjunto', ts});
+      toast('✅ Registrado en Bordi y Jose');
+    } else {
+      const pago={id:Date.now(),tipo,fecha,forma,ref,monto,notas,ts:new Date().toISOString()};
+      pagos.push(pago); save(K.PAGOS,pagos);
+      await sbInsert('pagos', {
+        pago_id:pago.id, tipo:pago.tipo, fecha:pago.fecha, forma:pago.forma,
+        ref:pago.ref||'', monto:pago.monto, notas:pago.notas||'', ts:pago.ts
+      });
+      toast('✅ Registrado');
+    }
   } catch(e) { toast('Guardado local'); }
   $('p-monto').value=''; $('p-ref').value=''; $('p-notas').value='';
   renderCobros(); renderDash();
