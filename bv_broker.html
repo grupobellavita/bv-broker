@@ -134,9 +134,12 @@ input:focus,select:focus{outline:none;border-color:var(--olv);}
     <div style="overflow-x:auto">
     <table class="it">
       <thead><tr>
-        <th>Ítem</th><th>KG</th><th>Bidones</th>
+        <th>Ítem</th>
+        <th>Bidones</th>
+        <th>KG</th>
         <th>P.Bordi ($/kg)</th><th>P.Jose ($/kg)</th><th>Dif</th>
         <th>Venta Bordi</th><th>Costo Jose</th><th>Ganancia</th>
+        <th></th>
       </tr></thead>
       <tbody id="it-body"></tbody>
       <tfoot><tr>
@@ -151,6 +154,9 @@ input:focus,select:focus{outline:none;border-color:var(--olv);}
         <td id="fl-gan" class="gc">$0</td>
       </tr></tfoot>
     </table>
+    </div>
+    <div style="margin-top:10px;">
+      <button class="btn bg" onclick="addExtraItem()" style="font-size:12px;padding:6px 14px;">➕ Agregar ítem extra</button>
     </div>
     <div class="rb">
       <div class="ri"><div class="rl">Venta Bordi</div><div class="rv" id="r-vb">$0</div></div>
@@ -465,21 +471,110 @@ function goTab(id, btn) {
   if(id==='cjose')     renderCuentaJose();
 }
 
+// Extra items counter
+let extraItems = [];
+let extraCount = 0;
+
 function buildItems() {
   $('it-body').innerHTML = ITEMS.map(item => {
-    const k=item.replace(/ /g,'_');
-    return '<tr>'
-      +'<td style="font-weight:600;color:var(--cream)">'+item+'</td>'
-      +'<td><input type="number" id="kg-'+k+'" value="0" min="0" onchange="calc()" style="width:80px;font-size:12px;padding:5px 6px"></td>'
-      +'<td id="bid-'+k+'" class="pc">—</td>'
-      +'<td><input type="number" id="pb-'+k+'" value="'+P_DEF[item].b+'" onchange="calc()" style="width:80px;font-size:12px;padding:5px 6px"></td>'
-      +'<td><input type="number" id="pj-'+k+'" value="'+P_DEF[item].j+'" onchange="calc()" style="width:80px;font-size:12px;padding:5px 6px"></td>'
-      +'<td id="dif-'+k+'" class="dc2">$0</td>'
-      +'<td id="vb-'+k+'" class="gc">$0</td>'
-      +'<td id="cj-'+k+'" class="pc">$0</td>'
-      +'<td id="gan-'+k+'" class="gc">$0</td>'
-      +'</tr>';
+    const k = item.replace(/ /g,'_');
+    const pesoK = PESO[item];
+    return `<tr id="row-${k}">
+      <td style="font-weight:600;color:var(--cream);white-space:nowrap">${item}</td>
+      <td>
+        <input type="text" id="bid-inp-${k}" value="" placeholder="—" inputmode="decimal"
+          oninput="onBidChange('${k}','${pesoK}')"
+          style="width:70px;font-size:12px;padding:5px 6px">
+      </td>
+      <td>
+        <input type="text" id="kg-${k}" value="0" inputmode="decimal"
+          oninput="onKgChange('${k}','${pesoK}')"
+          style="width:70px;font-size:12px;padding:5px 6px">
+      </td>
+      <td><input type="text" id="pb-${k}" value="${P_DEF[item].b}" inputmode="decimal" onchange="calc()" style="width:75px;font-size:12px;padding:5px 6px"></td>
+      <td><input type="text" id="pj-${k}" value="${P_DEF[item].j}" inputmode="decimal" onchange="calc()" style="width:75px;font-size:12px;padding:5px 6px"></td>
+      <td id="dif-${k}" class="dc2">$0</td>
+      <td id="vb-${k}" class="gc">$0</td>
+      <td id="cj-${k}" class="pc">$0</td>
+      <td id="gan-${k}" class="gc">$0</td>
+      <td></td>
+    </tr>`;
   }).join('');
+  renderExtraItems();
+}
+
+function onBidChange(k, peso) {
+  const bid = num($('bid-inp-'+k)?.value);
+  const kgEl = $('kg-'+k);
+  if (kgEl && bid > 0) kgEl.value = Math.round(bid * peso);
+  else if (kgEl && bid === 0) kgEl.value = 0;
+  calc();
+}
+
+function onKgChange(k, peso) {
+  const kg = num($('kg-'+k)?.value);
+  const bidEl = $('bid-inp-'+k);
+  if (bidEl && kg > 0) bidEl.value = (kg / peso).toFixed(2);
+  else if (bidEl && kg === 0) bidEl.value = '';
+  calc();
+}
+
+function addExtraItem() {
+  extraCount++;
+  const id = 'extra_' + extraCount;
+  extraItems.push({ id, nombre: '', kg: 0, pb: 0, pj: 0 });
+  renderExtraItems();
+}
+
+function removeExtraItem(id) {
+  extraItems = extraItems.filter(e => e.id !== id);
+  renderExtraItems();
+  calc();
+}
+
+function renderExtraItems() {
+  // Remove existing extra rows
+  document.querySelectorAll('.extra-row').forEach(r => r.remove());
+  const tbody = $('it-body');
+  extraItems.forEach(item => {
+    const row = document.createElement('tr');
+    row.className = 'extra-row';
+    row.id = 'row-' + item.id;
+    row.innerHTML = `
+      <td><input type="text" id="nom-${item.id}" value="${item.nombre}" placeholder="Nombre ítem"
+        onchange="extraItems.find(e=>e.id==='${item.id}').nombre=this.value"
+        style="width:110px;font-size:12px;padding:5px 6px;color:var(--glt)"></td>
+      <td><input type="text" id="bid-inp-${item.id}" value="" placeholder="—" inputmode="decimal"
+        oninput="onBidChangeExtra('${item.id}')"
+        style="width:70px;font-size:12px;padding:5px 6px"></td>
+      <td><input type="text" id="kg-${item.id}" value="0" inputmode="decimal"
+        oninput="onKgChangeExtra('${item.id}')"
+        style="width:70px;font-size:12px;padding:5px 6px"></td>
+      <td><input type="text" id="pb-${item.id}" value="0" inputmode="decimal" onchange="calc()" style="width:75px;font-size:12px;padding:5px 6px"></td>
+      <td><input type="text" id="pj-${item.id}" value="0" inputmode="decimal" onchange="calc()" style="width:75px;font-size:12px;padding:5px 6px"></td>
+      <td id="dif-${item.id}" class="dc2">$0</td>
+      <td id="vb-${item.id}" class="gc">$0</td>
+      <td id="cj-${item.id}" class="pc">$0</td>
+      <td id="gan-${item.id}" class="gc">$0</td>
+      <td><button class="btn bd" onclick="removeExtraItem('${item.id}')" style="padding:3px 7px;font-size:11px;">✕</button></td>
+    `;
+    tbody.appendChild(row);
+  });
+}
+
+function onBidChangeExtra(id) {
+  const bid = num($('bid-inp-'+id)?.value);
+  const kgEl = $('kg-'+id);
+  // Extra items default 180kg/bidon unless we know better
+  if (kgEl) kgEl.value = bid > 0 ? Math.round(bid * 180) : 0;
+  calc();
+}
+
+function onKgChangeExtra(id) {
+  const kg = num($('kg-'+id)?.value);
+  const bidEl = $('bid-inp-'+id);
+  if (bidEl) bidEl.value = kg > 0 ? (kg / 180).toFixed(2) : '';
+  calc();
 }
 
 function calc() {
@@ -489,11 +584,22 @@ function calc() {
     const kg=num($('kg-'+k)?.value), pb=num($('pb-'+k)?.value), pj=num($('pj-'+k)?.value);
     const bid=kg>0?kg/PESO[item]:0, dif=pb-pj;
     const vb=kg*pb, cj=kg*pj, gan=kg*dif;
-    if($('bid-'+k)) $('bid-'+k).textContent = kg>0 ? bid.toFixed(1) : '—';
-    if($('dif-'+k)) $('dif-'+k).textContent = '$'+dif.toLocaleString('es-AR');
+    if($('dif-'+k)) $('dif-'+k).textContent = '$'+Math.round(dif).toLocaleString('es-AR');
     if($('vb-'+k))  $('vb-'+k).textContent  = kg>0 ? fmt(vb) : '$0';
     if($('cj-'+k))  $('cj-'+k).textContent  = kg>0 ? fmt(cj) : '$0';
     if($('gan-'+k)) $('gan-'+k).textContent  = kg>0 ? fmt(gan) : '$0';
+    tv+=vb; tc+=cj; tg+=gan; tb+=bid;
+  });
+  // Extra items
+  extraItems.forEach(item=>{
+    const id=item.id;
+    const kg=num($('kg-'+id)?.value), pb=num($('pb-'+id)?.value), pj=num($('pj-'+id)?.value);
+    const bid=kg>0?kg/180:0, dif=pb-pj;
+    const vb=kg*pb, cj=kg*pj, gan=kg*dif;
+    if($('dif-'+id)) $('dif-'+id).textContent = '$'+Math.round(dif).toLocaleString('es-AR');
+    if($('vb-'+id))  $('vb-'+id).textContent  = kg>0 ? fmt(vb) : '$0';
+    if($('cj-'+id))  $('cj-'+id).textContent  = kg>0 ? fmt(cj) : '$0';
+    if($('gan-'+id)) $('gan-'+id).textContent  = kg>0 ? fmt(gan) : '$0';
     tv+=vb; tc+=cj; tg+=gan; tb+=bid;
   });
   const flpb=num($('fl-pb')?.value)||30000, flpj=num($('fl-pj')?.value)||150000;
@@ -520,6 +626,16 @@ async function guardarOp() {
     const kg=num($('kg-'+k).value), pb=num($('pb-'+k).value), pj=num($('pj-'+k).value);
     items[item]={kg,pb,pj};
     tv+=kg*pb; tc+=kg*pj; tg+=kg*(pb-pj); tb+=kg>0?kg/PESO[item]:0;
+  });
+  // Extra items
+  extraItems.forEach(item=>{
+    const id=item.id;
+    const kg=num($('kg-'+id)?.value), pb=num($('pb-'+id)?.value), pj=num($('pj-'+id)?.value);
+    const nombre=($('nom-'+id)?.value||'EXTRA').trim();
+    if(kg>0||pb>0) {
+      items[nombre]={kg,pb,pj};
+      tv+=kg*pb; tc+=kg*pj; tg+=kg*(pb-pj); tb+=kg>0?kg/180:0;
+    }
   });
   const bid_r=Math.round(tb), fl_vb=bid_r*flpb, fl_cj=flpj, fl_gan=fl_vb-fl_cj;
   const op={
@@ -551,9 +667,12 @@ function limpiarForm() {
   ITEMS.forEach(item=>{
     const k=item.replace(/ /g,'_');
     $('kg-'+k).value=0;
+    $('bid-inp-'+k).value='';
     $('pb-'+k).value=P_DEF[item].b;
     $('pj-'+k).value=P_DEF[item].j;
   });
+  extraItems=[]; extraCount=0;
+  renderExtraItems();
   $('fl-pb').value=30000; $('fl-pj').value=150000; calc();
 }
 
