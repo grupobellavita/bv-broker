@@ -1178,6 +1178,19 @@ function guardarCambiosRemito() {
   ops[idx].costo_total = tc + flCj;
   ops[idx].gan_total = tg + (flVb - flCj);
   save(K.OPS, ops);
+  // Sincronizar con Supabase
+  try {
+    const op = ops[idx];
+    sbInsert('ops', {
+      op_id:op.id, fecha:op.fecha, remito:op.remito||'', nombre:op.nombre,
+      bidones:op.bidones, venta_items:op.venta_items, costo_items:op.costo_items,
+      gan_items:op.gan_items, flete_vb:op.flete_vb, flete_cj:op.flete_cj,
+      flete_gan:op.flete_gan, venta_total:op.venta_total, costo_total:op.costo_total,
+      gan_total:op.gan_total, flete_pb:op.flete_pb||30000, flete_pj:op.flete_pj||150000,
+      items_json:JSON.stringify(op.items), ts:op.ts
+    });
+  } catch(e){}
+  cerrarRemito();
   toast('✅ Cambios guardados');
   renderDash();
 }
@@ -1326,6 +1339,19 @@ function imprimirEstado() {
 function hoy(){ return new Date().toISOString().split('T')[0]; }
 $('n-fecha').value=hoy(); $('p-fecha').value=hoy();
 buildItems(); calc(); renderDash();
+
+// ESC cierra modales sin guardar
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    cerrarRemito();
+    cerrarEstado();
+  }
+});
+
+// Click fuera del modal lo cierra sin guardar
+document.getElementById('modal-remito').addEventListener('click', function(e) {
+  if (e.target === this) cerrarRemito();
+});
 </script>
 </body>
 </html>
