@@ -282,9 +282,8 @@ input:focus,select:focus{outline:none;border-color:var(--olv);}
         <thead>
           <tr style="background:#1a3a2e;color:#fff;">
             <th style="padding:9px 12px;text-align:left;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Producto</th>
-            <th style="padding:9px 12px;text-align:right;font-weight:600;font-size:11px;text-transform:uppercase;">Kg</th>
-            <th style="padding:9px 12px;text-align:right;font-weight:600;font-size:11px;text-transform:uppercase;">Bidones</th>
-            <th style="padding:9px 12px;text-align:right;font-weight:600;font-size:11px;text-transform:uppercase;">$/Kg</th>
+            <th style="padding:9px 12px;text-align:right;font-weight:600;font-size:11px;text-transform:uppercase;">Kg / Bid.</th>
+            <th style="padding:9px 12px;text-align:right;font-weight:600;font-size:11px;text-transform:uppercase;">$/Kg Bordi</th>
             <th style="padding:9px 12px;text-align:right;font-weight:600;font-size:11px;text-transform:uppercase;">Total</th>
           </tr>
         </thead>
@@ -427,11 +426,12 @@ input:focus,select:focus{outline:none;border-color:var(--olv);}
 <script>
 const SUPA_URL = 'https://xfddsobecgpyexatkjos.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmZGRzb2JlY2dweWV4YXRram9zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3MjEyNjEsImV4cCI6MjA5NzI5NzI2MX0.1bmJudDR1ZTAnOL2NJ4JEWRz-Pl7Edsv-FmT-JN7V0U';
-const ITEMS = ['VERDE 1','RODAJADA','DESCA 0','VERDE 170','VERDE 2','VERDE 3'];
-const PESO  = {'VERDE 1':180,'RODAJADA':150,'DESCA 0':150,'VERDE 170':180,'VERDE 2':180,'VERDE 3':180};
+const ITEMS = ['VERDE 1','RODAJADA','DESCA 0','VERDE 170','VERDE 2','VERDE 3','NEGRA 0','NEGRA 1','NEGRA 2'];
+const PESO  = {'VERDE 1':180,'RODAJADA':150,'DESCA 0':150,'VERDE 170':180,'VERDE 2':180,'VERDE 3':180,'NEGRA 0':175,'NEGRA 1':175,'NEGRA 2':175};
 const P_DEF = {
   'VERDE 1':{b:3000,j:2900},'RODAJADA':{b:3400,j:3300},'DESCA 0':{b:3800,j:3400},
-  'VERDE 170':{b:3200,j:3100},'VERDE 2':{b:2750,j:2690},'VERDE 3':{b:2550,j:2390}
+  'VERDE 170':{b:3200,j:3100},'VERDE 2':{b:2750,j:2690},'VERDE 3':{b:2550,j:2390},
+  'NEGRA 0':{b:6700,j:6500},'NEGRA 1':{b:5700,j:5500},'NEGRA 2':{b:4400,j:4000}
 };
 const K={OPS:'bv_ops',PAGOS:'bv_pagos'};
 const load = k => { try{ return JSON.parse(localStorage.getItem(k))||[]; }catch(e){ return []; } };
@@ -952,42 +952,168 @@ function renderCuentaJose(){
 // ── REMITO BORDI ──────────────────────────────────────────────
 const PESO_R = {'VERDE 1':180,'RODAJADA':150,'DESCA 0':150,'VERDE 170':180,'VERDE 2':180,'VERDE 3':180};
 
+// Datos editables del remito actual
+let _remitoOp = null;
+let _remitoItems = {};
+
 function abrirRemito(opId) {
   const op = loadOps().find(o => o.id === opId);
   if (!op) return;
+  _remitoOp = op;
+  // Copiar items con precios editables
+  _remitoItems = {};
+  Object.entries(op.items || {}).forEach(([nombre, data]) => {
+    _remitoItems[nombre] = { kg: parseFloat(data.kg)||0, pb: parseFloat(data.pb)||0, pj: parseFloat(data.pj)||0 };
+  });
   document.getElementById('r-nro').textContent = op.remito || ('OP-'+String(opId).slice(-6));
   document.getElementById('r-fecha').textContent = dateD(op.fecha);
   document.getElementById('r-dest').textContent = op.nombre || 'Bordi';
-  const items = op.items || {};
+  renderRemitoItems();
+  document.getElementById('modal-remito').style.display = 'block';
+}
+
+function renderRemitoItems() {
+  const op = _remitoOp;
   let subtotal = 0, rowBg = false, itemsHTML = '';
-  Object.entries(items).forEach(([nombre, data]) => {
-    const kg = parseFloat(data.kg)||0;
+  Object.entries(_remitoItems).forEach(([nombre, data]) => {
+    const kg = data.kg;
     if (kg <= 0) return;
-    const pb = parseFloat(data.pb)||0;
+    const pb = data.pb;
     const total = kg * pb;
     const peso = PESO_R[nombre]||180;
     const bid = (kg/peso).toFixed(1);
     subtotal += total;
     const bg = rowBg ? '#f5f8f5' : '#fff';
+    const nk = nombre.replace(/ /g,'_');
     itemsHTML += `<tr style="background:${bg};">
-      <td style="padding:9px 12px;font-weight:600;color:#1a3a2e;">${nombre}</td>
-      <td style="padding:9px 12px;text-align:right;">${kg.toLocaleString('es-AR')} kg</td>
-      <td style="padding:9px 12px;text-align:right;color:#777;">${bid} bid.</td>
-      <td style="padding:9px 12px;text-align:right;">$${pb.toLocaleString('es-AR')}/kg</td>
-      <td style="padding:9px 12px;text-align:right;font-weight:600;">$${Math.round(total).toLocaleString('es-AR')}</td>
+      <td style="padding:8px 10px;font-weight:600;color:#1a3a2e;white-space:nowrap;">${nombre}
+        <button onclick="removeRemitoItem('${nombre}')" title="Quitar" style="margin-left:6px;background:transparent;border:1px solid #ddd;border-radius:4px;color:#aaa;cursor:pointer;font-size:10px;padding:1px 5px;">✕</button>
+      </td>
+      <td style="padding:8px 10px;text-align:right;">${kg.toLocaleString('es-AR')} kg<br><span style="font-size:10px;color:#999;">${bid} bid.</span></td>
+      <td style="padding:8px 10px;text-align:right;">
+        <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">
+          <span style="font-size:11px;color:#999;">$</span>
+          <input type="text" value="${pb.toLocaleString('es-AR')}" inputmode="decimal"
+            onchange="updateRemitoPrice('${nombre}',this.value)"
+            style="width:80px;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px;text-align:right;">
+          <span style="font-size:10px;color:#999;">/kg</span>
+        </div>
+      </td>
+      <td style="padding:8px 10px;text-align:right;font-weight:600;" id="rtot-${nk}">$${Math.round(total).toLocaleString('es-AR')}</td>
     </tr>`;
     rowBg = !rowBg;
   });
-  document.getElementById('r-items').innerHTML = itemsHTML || '<tr><td colspan="5" style="padding:14px;text-align:center;color:#aaa;">Sin ítems</td></tr>';
-  const flVb = op.flete_vb||0, bidR = op.bidones||0, flPb = op.flete_pb||0;
-  document.getElementById('r-flete-row').innerHTML = flVb>0
-    ? `<tr style="background:#f0f5f0;"><td style="padding:9px 12px;font-style:italic;color:#666;">Flete (${bidR} bid × $${flPb.toLocaleString('es-AR')})</td><td colspan="3" style="padding:9px 12px;text-align:right;color:#999;">—</td><td style="padding:9px 12px;text-align:right;font-weight:600;">$${Math.round(flVb).toLocaleString('es-AR')}</td></tr>`
-    : '';
+
+  // Fila para agregar ítem extra al remito
+  itemsHTML += `<tr style="background:#f0f5f0;">
+    <td colspan="4" style="padding:8px 10px;">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <span style="font-size:11px;color:#666;font-style:italic;">+ Agregar ítem:</span>
+        <select id="r-add-nombre" style="padding:4px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;background:#fff;">
+          <option value="">— producto —</option>
+          ${ITEMS.map(i => `<option value="${i}">${i}</option>`).join('')}
+          <option value="__custom__">✏️ Otro...</option>
+        </select>
+        <input type="text" id="r-add-custom" placeholder="Nombre" style="display:none;width:100px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+        <input type="text" id="r-add-kg" placeholder="kg" inputmode="decimal" style="width:65px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+        <input type="text" id="r-add-pb" placeholder="$/kg Bordi" inputmode="decimal" style="width:90px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+        <button onclick="addRemitoItem()" style="padding:4px 12px;background:#1a3a2e;color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;">Agregar</button>
+      </div>
+    </td>
+  </tr>`;
+
+  document.getElementById('r-items').innerHTML = itemsHTML || '<tr><td colspan="4" style="padding:14px;text-align:center;color:#aaa;">Sin ítems</td></tr>';
+
+  // Manejar select custom
+  const sel = document.getElementById('r-add-nombre');
+  if (sel) sel.onchange = function() {
+    const cust = document.getElementById('r-add-custom');
+    if (cust) cust.style.display = this.value === '__custom__' ? 'block' : 'none';
+    // Autocompletar precio si es item conocido
+    const pb = document.getElementById('r-add-pb');
+    if (pb && P_DEF[this.value]) pb.value = P_DEF[this.value].b.toLocaleString('es-AR');
+  };
+
+  // Flete editable
+  const flVb = op.flete_vb||0, bidR = op.bidones||0;
+  let flPb = op.flete_pb||0;
+  document.getElementById('r-flete-row').innerHTML = `<tr style="background:#f0f5f0;">
+    <td style="padding:8px 10px;font-style:italic;color:#666;">Flete (${bidR} bidones)</td>
+    <td style="padding:8px 10px;text-align:right;color:#999;">—</td>
+    <td style="padding:8px 10px;text-align:right;">
+      <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">
+        <span style="font-size:11px;color:#999;">$</span>
+        <input type="text" id="r-flete-val" value="${Math.round(flVb).toLocaleString('es-AR')}" inputmode="decimal"
+          onchange="updateRemitoFlete(this.value)"
+          style="width:90px;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px;text-align:right;">
+        <span style="font-size:10px;color:#999;">total</span>
+      </div>
+    </td>
+    <td style="padding:8px 10px;text-align:right;font-weight:600;" id="r-flete-total-td">$${Math.round(flVb).toLocaleString('es-AR')}</td>
+  </tr>`;
+
+  recalcRemitoTotales();
+}
+
+function updateRemitoPrice(nombre, val) {
+  const pb = num(val);
+  if (_remitoItems[nombre]) {
+    _remitoItems[nombre].pb = pb;
+    const kg = _remitoItems[nombre].kg;
+    const nk = nombre.replace(/ /g,'_');
+    const el = document.getElementById('rtot-'+nk);
+    if (el) el.textContent = '$' + Math.round(kg*pb).toLocaleString('es-AR');
+    recalcRemitoTotales();
+  }
+}
+
+function removeRemitoItem(nombre) {
+  delete _remitoItems[nombre];
+  renderRemitoItems();
+}
+
+function addRemitoItem() {
+  const sel = document.getElementById('r-add-nombre');
+  let nombre = sel ? sel.value : '';
+  if (nombre === '__custom__') {
+    nombre = (document.getElementById('r-add-custom')?.value || '').trim().toUpperCase();
+  }
+  if (!nombre) return;
+  const kg = num(document.getElementById('r-add-kg')?.value);
+  const pb = num(document.getElementById('r-add-pb')?.value);
+  if (!kg) { alert('Ingresá los kg'); return; }
+  if (_remitoItems[nombre]) {
+    _remitoItems[nombre].kg += kg;
+    _remitoItems[nombre].pb = pb || _remitoItems[nombre].pb;
+  } else {
+    _remitoItems[nombre] = { kg, pb: pb || (P_DEF[nombre]?.b || 0), pj: P_DEF[nombre]?.j || 0 };
+  }
+  renderRemitoItems();
+}
+
+function updateRemitoFlete(val) {
+  if (_remitoOp) _remitoOp._fleteOverride = num(val);
+  recalcRemitoTotales();
+}
+
+function recalcRemitoTotales() {
+  let subtotal = 0;
+  Object.entries(_remitoItems).forEach(([nombre, data]) => {
+    subtotal += (data.kg||0) * (data.pb||0);
+  });
+  const fleteEl = document.getElementById('r-flete-val');
+  const flVb = fleteEl ? num(fleteEl.value) : (_remitoOp?.flete_vb||0);
   const total = subtotal + flVb;
-  document.getElementById('r-subtotal-row').innerHTML = flVb>0 ? `<span>Subtotal ítems</span><span style="font-weight:600;">$${Math.round(subtotal).toLocaleString('es-AR')}</span>` : '';
-  document.getElementById('r-flete-total-row').innerHTML = flVb>0 ? `<span>Flete</span><span style="font-weight:600;">$${Math.round(flVb).toLocaleString('es-AR')}</span>` : '';
-  document.getElementById('r-total').textContent = '$' + Math.round(total).toLocaleString('es-AR');
-  document.getElementById('modal-remito').style.display = 'block';
+  const op = _remitoOp;
+  const flVbOrig = op?.flete_vb||0;
+  const el_sub = document.getElementById('r-subtotal-row');
+  const el_fl = document.getElementById('r-flete-total-row');
+  const el_ftd = document.getElementById('r-flete-total-td');
+  if (el_sub) el_sub.innerHTML = flVb>0 ? `<span>Subtotal ítems</span><span style="font-weight:600;">$${Math.round(subtotal).toLocaleString('es-AR')}</span>` : '';
+  if (el_fl) el_fl.innerHTML = flVb>0 ? `<span>Flete</span><span style="font-weight:600;">$${Math.round(flVb).toLocaleString('es-AR')}</span>` : '';
+  if (el_ftd) el_ftd.textContent = '$'+Math.round(flVb).toLocaleString('es-AR');
+  const el_tot = document.getElementById('r-total');
+  if (el_tot) el_tot.textContent = '$' + Math.round(total).toLocaleString('es-AR');
 }
 
 function cerrarRemito() {
