@@ -993,7 +993,7 @@ function renderRemitoItems() {
       <td style="padding:8px 10px;text-align:right;">
         <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">
           <span style="font-size:11px;color:#999;">$</span>
-          <input type="text" value="${pb.toLocaleString('es-AR')}" inputmode="decimal"
+          <input type="text" value="${pb}" inputmode="decimal"
             onchange="updateRemitoPrice('${nombre}',this.value)"
             style="width:80px;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px;text-align:right;">
           <span style="font-size:10px;color:#999;">/kg</span>
@@ -1006,7 +1006,7 @@ function renderRemitoItems() {
 
   // Fila para agregar ítem extra al remito
   itemsHTML += `<tr style="background:#f0f5f0;">
-    <td colspan="4" style="padding:8px 10px;">
+    <td colspan="4" style="padding:10px 10px;">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <span style="font-size:11px;color:#666;font-style:italic;">+ Agregar ítem:</span>
         <select id="r-add-nombre" style="padding:4px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;background:#fff;">
@@ -1015,9 +1015,10 @@ function renderRemitoItems() {
           <option value="__custom__">✏️ Otro...</option>
         </select>
         <input type="text" id="r-add-custom" placeholder="Nombre" style="display:none;width:100px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
-        <input type="text" id="r-add-kg" placeholder="kg" inputmode="decimal" style="width:65px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
-        <input type="text" id="r-add-pb" placeholder="$/kg Bordi" inputmode="decimal" style="width:90px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
-        <button onclick="addRemitoItem()" style="padding:4px 12px;background:#1a3a2e;color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;">Agregar</button>
+        <input type="text" id="r-add-bid" placeholder="bidones" inputmode="decimal" style="width:70px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;" oninput="rAddBidToKg()">
+        <input type="text" id="r-add-kg" placeholder="kg" inputmode="decimal" style="width:65px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;" oninput="rAddKgToBid()">
+        <input type="text" id="r-add-pb" placeholder="$/kg Bordi" inputmode="decimal" style="width:95px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+        <button onclick="addRemitoItem()" style="padding:4px 14px;background:#1a3a2e;color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;font-weight:600;">Agregar</button>
       </div>
     </td>
   </tr>`;
@@ -1029,9 +1030,14 @@ function renderRemitoItems() {
   if (sel) sel.onchange = function() {
     const cust = document.getElementById('r-add-custom');
     if (cust) cust.style.display = this.value === '__custom__' ? 'block' : 'none';
-    // Autocompletar precio si es item conocido
+    // Autocompletar precio si es item conocido (sin formato para evitar bugs)
     const pb = document.getElementById('r-add-pb');
-    if (pb && P_DEF[this.value]) pb.value = P_DEF[this.value].b.toLocaleString('es-AR');
+    if (pb && P_DEF[this.value]) pb.value = P_DEF[this.value].b;
+    // Limpiar campos kg/bid
+    const kgEl = document.getElementById('r-add-kg');
+    const bidEl = document.getElementById('r-add-bid');
+    if (kgEl) kgEl.value = '';
+    if (bidEl) bidEl.value = '';
   };
 
   // Flete editable
@@ -1043,7 +1049,7 @@ function renderRemitoItems() {
     <td style="padding:8px 10px;text-align:right;">
       <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">
         <span style="font-size:11px;color:#999;">$</span>
-        <input type="text" id="r-flete-val" value="${Math.round(flVb).toLocaleString('es-AR')}" inputmode="decimal"
+        <input type="text" id="r-flete-val" value="${Math.round(flVb)}" inputmode="decimal"
           onchange="updateRemitoFlete(this.value)"
           style="width:90px;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px;text-align:right;">
         <span style="font-size:10px;color:#999;">total</span>
@@ -1072,6 +1078,22 @@ function removeRemitoItem(nombre) {
   renderRemitoItems();
 }
 
+function rAddBidToKg() {
+  const nombre = document.getElementById('r-add-nombre')?.value;
+  const bid = num(document.getElementById('r-add-bid')?.value);
+  const peso = (nombre && PESO[nombre]) ? PESO[nombre] : 175;
+  const kgEl = document.getElementById('r-add-kg');
+  if (kgEl && bid > 0) kgEl.value = Math.round(bid * peso);
+}
+
+function rAddKgToBid() {
+  const nombre = document.getElementById('r-add-nombre')?.value;
+  const kg = num(document.getElementById('r-add-kg')?.value);
+  const peso = (nombre && PESO[nombre]) ? PESO[nombre] : 175;
+  const bidEl = document.getElementById('r-add-bid');
+  if (bidEl && kg > 0) bidEl.value = (kg / peso).toFixed(2);
+}
+
 function addRemitoItem() {
   const sel = document.getElementById('r-add-nombre');
   let nombre = sel ? sel.value : '';
@@ -1097,19 +1119,25 @@ function updateRemitoFlete(val) {
 }
 
 function recalcRemitoTotales() {
-  let subtotal = 0;
+  let subtotal = 0, totalKg = 0, totalBid = 0;
   Object.entries(_remitoItems).forEach(([nombre, data]) => {
-    subtotal += (data.kg||0) * (data.pb||0);
+    const kg = data.kg||0;
+    subtotal += kg * (data.pb||0);
+    totalKg += kg;
+    const peso = PESO[nombre]||175;
+    totalBid += kg/peso;
   });
+  totalBid = Math.round(totalBid);
   const fleteEl = document.getElementById('r-flete-val');
   const flVb = fleteEl ? num(fleteEl.value) : (_remitoOp?.flete_vb||0);
   const total = subtotal + flVb;
-  const op = _remitoOp;
-  const flVbOrig = op?.flete_vb||0;
+  // Actualizar label bidones en flete
+  const flLabel = document.querySelector('#r-flete-row td:first-child');
+  if (flLabel) flLabel.textContent = `Flete (${totalBid} bidones)`;
   const el_sub = document.getElementById('r-subtotal-row');
   const el_fl = document.getElementById('r-flete-total-row');
   const el_ftd = document.getElementById('r-flete-total-td');
-  if (el_sub) el_sub.innerHTML = flVb>0 ? `<span>Subtotal ítems</span><span style="font-weight:600;">$${Math.round(subtotal).toLocaleString('es-AR')}</span>` : '';
+  if (el_sub) el_sub.innerHTML = flVb>0 ? `<span>Subtotal ítems</span><span style="font-weight:600;">$${Math.round(subtotal).toLocaleString('es-AR')}</span>` : `<span>Total ítems</span><span style="font-weight:600;">$${Math.round(subtotal).toLocaleString('es-AR')}</span>`;
   if (el_fl) el_fl.innerHTML = flVb>0 ? `<span>Flete</span><span style="font-weight:600;">$${Math.round(flVb).toLocaleString('es-AR')}</span>` : '';
   if (el_ftd) el_ftd.textContent = '$'+Math.round(flVb).toLocaleString('es-AR');
   const el_tot = document.getElementById('r-total');
@@ -1118,6 +1146,40 @@ function recalcRemitoTotales() {
 
 function cerrarRemito() {
   document.getElementById('modal-remito').style.display = 'none';
+}
+
+function guardarCambiosRemito() {
+  if (!_remitoOp) return;
+  const ops = loadOps();
+  const idx = ops.findIndex(o => o.id === _remitoOp.id);
+  if (idx < 0) return;
+  // Actualizar items con los precios/kg editados
+  const newItems = {};
+  Object.entries(_remitoItems).forEach(([nombre, data]) => {
+    newItems[nombre] = { kg: data.kg, pb: data.pb, pj: data.pj||0 };
+  });
+  // Recalcular totales
+  let tv=0, tc=0, tg=0, tb=0;
+  Object.entries(newItems).forEach(([nombre, data]) => {
+    const kg=data.kg||0, pb=data.pb||0, pj=data.pj||0;
+    tv+=kg*pb; tc+=kg*pj; tg+=kg*(pb-pj);
+    tb+=kg/(PESO[nombre]||175);
+  });
+  const fleteEl = document.getElementById('r-flete-val');
+  const flVb = fleteEl ? num(fleteEl.value) : (ops[idx].flete_vb||0);
+  const flCj = ops[idx].flete_cj||0;
+  ops[idx].items = newItems;
+  ops[idx].venta_items = tv;
+  ops[idx].costo_items = tc;
+  ops[idx].gan_items = tg;
+  ops[idx].bidones = Math.round(tb);
+  ops[idx].flete_vb = flVb;
+  ops[idx].venta_total = tv + flVb;
+  ops[idx].costo_total = tc + flCj;
+  ops[idx].gan_total = tg + (flVb - flCj);
+  save(K.OPS, ops);
+  toast('✅ Cambios guardados');
+  renderDash();
 }
 
 function imprimirRemito() {
