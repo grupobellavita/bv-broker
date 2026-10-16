@@ -106,8 +106,7 @@ input:focus,select:focus{outline:none;border-color:var(--olv);}
     <button class="tb" onclick="goTab('cjose',this)">Cuenta Jose</button>
   </nav>
   <div class="hbtns">
-    <button class="hbtn primary" onclick="subirSheets()" id="btn-subir">⬆ Subir a Supabase</button>
-    <button class="hbtn" onclick="bajarSheets()" id="btn-bajar">↻ Sincronizar Supabase</button>
+    <button class="hbtn" onclick="bajarSheets()" id="btn-bajar">↻ Sincronizar</button>
     <button class="hbtn" onclick="exportar()">⬇ Backup</button>
     <button class="hbtn" onclick="importar()">📂 Restaurar</button>
   </div>
@@ -736,6 +735,15 @@ async function sbDelete(table, field, value) {
   return r.ok;
 }
 
+async function sbUpdate(table, matchField, matchValue, data) {
+  const r = await fetch(SUPA_URL+'/rest/v1/'+table+'?'+matchField+'=eq.'+matchValue, {
+    method:'PATCH',
+    headers:{...HEADERS, 'Prefer':'return=minimal'},
+    body:JSON.stringify(data)
+  });
+  return r.ok;
+}
+
 async function subirSheets() {
   const ops=loadOps(), pagos=loadPagos();
   if(!ops.length&&!pagos.length){ toast('No hay datos locales',true); return; }
@@ -1178,18 +1186,19 @@ function guardarCambiosRemito() {
   ops[idx].costo_total = tc + flCj;
   ops[idx].gan_total = tg + (flVb - flCj);
   save(K.OPS, ops);
-  // Sincronizar con Supabase
-  try {
-    const op = ops[idx];
-    sbInsert('ops', {
-      op_id:op.id, fecha:op.fecha, remito:op.remito||'', nombre:op.nombre,
-      bidones:op.bidones, venta_items:op.venta_items, costo_items:op.costo_items,
-      gan_items:op.gan_items, flete_vb:op.flete_vb, flete_cj:op.flete_cj,
-      flete_gan:op.flete_gan, venta_total:op.venta_total, costo_total:op.costo_total,
-      gan_total:op.gan_total, flete_pb:op.flete_pb||30000, flete_pj:op.flete_pj||150000,
-      items_json:JSON.stringify(op.items), ts:op.ts
-    });
-  } catch(e){}
+  // Sincronizar con Supabase usando UPDATE (PATCH)
+  const op = ops[idx];
+  const supaData = {
+    fecha:op.fecha, remito:op.remito||'', nombre:op.nombre,
+    bidones:op.bidones, venta_items:op.venta_items, costo_items:op.costo_items,
+    gan_items:op.gan_items, flete_vb:op.flete_vb, flete_cj:op.flete_cj,
+    flete_gan:op.flete_gan, venta_total:op.venta_total, costo_total:op.costo_total,
+    gan_total:op.gan_total, flete_pb:op.flete_pb||30000, flete_pj:op.flete_pj||150000,
+    items_json:JSON.stringify(op.items), ts:new Date().toISOString()
+  };
+  sbUpdate('ops', 'op_id', op.id, supaData)
+    .then(ok => { if(!ok) console.warn('Supabase update falló para op_id', op.id); })
+    .catch(e => console.warn('Error Supabase:', e));
   cerrarRemito();
   toast('✅ Cambios guardados');
   renderDash();
