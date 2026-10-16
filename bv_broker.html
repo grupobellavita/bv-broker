@@ -315,8 +315,9 @@ input:focus,select:focus{outline:none;border-color:var(--olv);}
     </div>
     <!-- Acciones -->
     <div style="padding:14px 40px;background:#f5f8f5;border-top:1px solid #e0e0e0;display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="guardarCambiosRemito()" style="padding:9px 20px;background:#2e7d4f;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;">💾 Guardar cambios</button>
       <button onclick="imprimirRemito()" style="padding:9px 20px;background:#1a3a2e;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;">🖨️ Imprimir / PDF</button>
-      <button onclick="cerrarRemito()" style="padding:9px 20px;background:transparent;border:1px solid #ccc;border-radius:7px;font-size:13px;cursor:pointer;color:#555;">Cerrar</button>
+      <button onclick="cerrarRemito()" style="padding:9px 20px;background:transparent;border:1px solid #ccc;border-radius:7px;font-size:13px;cursor:pointer;color:#555;">Cerrar sin guardar</button>
     </div>
   </div>
 </div>
@@ -1349,17 +1350,21 @@ function hoy(){ return new Date().toISOString().split('T')[0]; }
 $('n-fecha').value=hoy(); $('p-fecha').value=hoy();
 buildItems(); calc(); renderDash();
 
-// ESC cierra modales sin guardar
+// ESC guarda y cierra el remito, cierra otros modales
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
-    cerrarRemito();
+    if (document.getElementById('modal-remito').style.display !== 'none') {
+      guardarCambiosRemito();
+    } else {
+      cerrarRemito();
+    }
     cerrarEstado();
   }
 });
 
 // Click fuera del modal lo cierra sin guardar
 document.getElementById('modal-remito').addEventListener('click', function(e) {
-  if (e.target === this) cerrarRemito();
+  if (e.target === this) guardarCambiosRemito();
 });
 </script>
 </body>
